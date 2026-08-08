@@ -1,0 +1,14 @@
+{
+    "noto sans gujarati": {
+        "normal": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_normal_531b3ce6e85cf5a003314925445d5bf0",
+        "bold": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_bold_531b3ce6e85cf5a003314925445d5bf0",
+        "500": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_500_531b3ce6e85cf5a003314925445d5bf0",
+        "600": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_600_531b3ce6e85cf5a003314925445d5bf0",
+        "800": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_800_531b3ce6e85cf5a003314925445d5bf0",
+        "italic": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_italic_531b3ce6e85cf5a003314925445d5bf0",
+        "bold_italic": "noto_sans_gujarati_bold_italic_531b3ce6e85cf5a003314925445d5bf0"
+    },
+    "noto serif gujarati": {
+        "normal": "noto_serif_gujarati_normal_531b3ce6e85cf5a003314925445d5bf0"
+    }
+}

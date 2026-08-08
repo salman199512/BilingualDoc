@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded App Icon Background -->
+  <rect width="64" height="64" rx="14" fill="url(#bgGrad)" />
+  
+  <!-- Subtle Inner Border -->
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+
+  <!-- Legal Justice Scale Symbol -->
+  <!-- Center Column & Base -->
+  <path d="M32 14 L32 48 M24 48 L40 48 M28 51 L36 51" stroke="#ffffff" stroke-width="3" stroke-linecap="round" filter="url(#shadow)"/>
+  
+  <!-- Top Finial / Pivot -->
+  <circle cx="32" cy="14" r="3" fill="url(#goldGrad)" filter="url(#shadow)"/>
+
+  <!-- Scale Balance Beam -->
+  <path d="M16 22 Q32 19 48 22" fill="none" stroke="url(#goldGrad)" stroke-width="2.75" stroke-linecap="round" filter="url(#shadow)"/>
+
+  <!-- Left Scale Pan Strings & Pan -->
+  <path d="M16 22 L11 34 M16 22 L21 34" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M9 34 Q16 39 23 34 Z" fill="url(#goldGrad)" filter="url(#shadow)"/>
+
+  <!-- Right Scale Pan Strings & Pan -->
+  <path d="M48 22 L43 34 M48 22 L53 34" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M41 34 Q48 39 55 34 Z" fill="url(#goldGrad)" filter="url(#shadow)"/>
+
+  <!-- Document / Quill Emblem Sparkle -->
+  <circle cx="47" cy="15" r="2.2" fill="#ffffff"/>
+</svg>
