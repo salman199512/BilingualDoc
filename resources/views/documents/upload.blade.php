@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('page-title', 'Document Upload (Word / PDF)')
+@section('page-title', 'Document Upload (Word / PDF / PageMaker)')
 
 @section('content')
 <div class="card animate-fade-in" style="max-width: 700px; margin: 0 auto;">
     <div style="margin-bottom: 1.5rem;">
         <h3 style="font-size: 1.15rem; font-weight: 600; color: #0f172a; margin-bottom: 0.5rem;">Document Import & Reformatting</h3>
         <p style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
-            Upload an existing Word document (<code>.docx</code>, <code>.doc</code>) or <strong>PDF file (<code>.pdf</code>)</strong>. The system will automatically parse the file, adjust pages to <strong>A4 Portrait</strong>, set margins to <strong>4cm left/right</strong> and <strong>2cm top/bottom</strong>, and apply correct bilingual fonts (Times New Roman / selected Gujarati font) at <strong>13pt</strong>.
+            Upload an existing Word document (<code>.docx</code>, <code>.doc</code>), <strong>PDF file (<code>.pdf</code>)</strong>, or <strong>Adobe PageMaker file (<code>.pmd</code>, <code>.p65</code>, <code>.pm6</code>, <code>.pm5</code>, <code>.ptd</code>)</strong>. The system will automatically parse the file, adjust pages to <strong>A4 Portrait</strong>, set margins to <strong>4cm left/right</strong> and <strong>2cm top/bottom</strong>, and apply correct bilingual fonts (Times New Roman / selected Gujarati font) at <strong>13pt</strong>.
         </p>
     </div>
 
@@ -43,12 +43,12 @@
         </div>
 
         <div class="form-group">
-            <label>Select Document File (.docx, .doc, .pdf)</label>
+            <label>Select Document File (.docx, .doc, .pdf, .pmd, .p65, .pm6, .ptd)</label>
             <div class="upload-dropzone" onclick="document.getElementById('document-file-input').click()">
                 <span class="upload-icon" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;">📂</span>
                 <span class="upload-text" id="dropzone-text" style="font-weight: 600; font-size: 0.95rem; display: block;">Click to choose file or drag & drop</span>
-                <span class="upload-subtext" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">Microsoft Word (.docx, .doc) or PDF (.pdf) files up to 15MB</span>
-                <input type="file" name="document_file" id="document-file-input" style="display: none;" accept=".docx,.doc,.pdf" onchange="updateFileName(this)" required>
+                <span class="upload-subtext" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; display: block;">Word (.docx, .doc), PDF (.pdf), or Adobe PageMaker (.pmd, .p65, .pm6, .pm5, .ptd) files up to 30MB</span>
+                <input type="file" name="document_file" id="document-file-input" style="display: none;" accept=".docx,.doc,.pdf,.pmd,.p65,.pm6,.pm5,.ptd,.txt" onchange="updateFileName(this)" required>
             </div>
             @error('document_file')
                 <span style="color: #ef4444; font-size: 0.8rem; margin-top: 4px; display: block;">{{ $message }}</span>

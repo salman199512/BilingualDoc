@@ -41,6 +41,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/documents/{document}/restore-version/{versionId}', [DocumentController::class, 'restoreVersion'])->name('documents.restore-version');
     Route::post('/documents/{document}/import-docx', [DocumentController::class, 'importDocx'])->name('documents.import-docx');
     Route::post('/documents/{document}/import-pdf', [DocumentController::class, 'importPdf'])->name('documents.import-pdf');
+    Route::post('/documents/{document}/import-pagemaker', [DocumentController::class, 'importPageMaker'])->name('documents.import-pagemaker');
 
     // Bilingual formatting helpers (AJAX)
     Route::post('/documents/api/format', [DocumentController::class, 'apiFormat'])->name('documents.api-format');

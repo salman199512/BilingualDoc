@@ -6,6 +6,7 @@ use App\Models\Document;
 use App\Models\DocumentVersion;
 use App\Services\BilingualFormatterService;
 use App\Services\DocxAutoFixService;
+use App\Services\PageMakerParserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Yajra\DataTables\Facades\DataTables;
@@ -350,6 +351,44 @@ class DocumentController extends Controller
         return response()->json([
             'success' => false,
             'message' => 'Upload failed.'
+        ], 422);
+    }
+
+    public function importPageMaker(Request $request, Document $document)
+    {
+        if ($document->user_id !== Auth::id()) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized action.'], 403);
+        }
+
+        $request->validate([
+            'pagemaker_file' => 'required|file|max:30720', // max 30MB
+        ]);
+
+        if ($request->file('pagemaker_file')->isValid()) {
+            $file = $request->file('pagemaker_file');
+            
+            try {
+                $htmlContent = PageMakerParserService::parseToHtml(
+                    $file->getPathname(),
+                    $document->font_gujarati,
+                    $document->font_english
+                );
+
+                return response()->json([
+                    'success' => true,
+                    'html' => $htmlContent
+                ]);
+            } catch (\Exception $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'PageMaker import error: ' . $e->getMessage()
+                ], 422);
+            }
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Upload failed or invalid PageMaker file.'
         ], 422);
     }
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Services\DocxAutoFixService;
 use App\Services\BilingualFormatterService;
+use App\Services\PageMakerParserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -20,7 +21,7 @@ class UploadController extends Controller
     public function upload(Request $request)
     {
         $request->validate([
-            'document_file' => 'required|file|mimes:docx,doc,pdf|max:15360', // max 15MB
+            'document_file' => 'required|file|max:30720', // max 30MB
             'title' => 'required|string|max:255',
             'font_gujarati' => 'required|string',
             'font_english' => 'required|string',
@@ -31,7 +32,22 @@ class UploadController extends Controller
             $extension = strtolower($file->getClientOriginalExtension());
             $htmlContent = '';
 
-            if ($extension === 'pdf') {
+            $allowedExtensions = ['docx', 'doc', 'pdf', 'pmd', 'p65', 'pm6', 'pm5', 'ptd', 'txt'];
+            if (!in_array($extension, $allowedExtensions)) {
+                return back()->withErrors(['document_file' => 'Invalid file format. Supported formats: DOCX, DOC, PDF, PageMaker (.pmd, .p65, .pm6, .pm5, .ptd).']);
+            }
+
+            if (in_array($extension, ['pmd', 'p65', 'pm6', 'pm5', 'ptd', 'txt'])) {
+                try {
+                    $htmlContent = PageMakerParserService::parseToHtml(
+                        $file->getPathname(),
+                        $request->font_gujarati,
+                        $request->font_english
+                    );
+                } catch (\Exception $e) {
+                    return back()->withErrors(['document_file' => 'Could not extract text from PageMaker file: ' . $e->getMessage()]);
+                }
+            } elseif ($extension === 'pdf') {
                 try {
                     $parser = new \Smalot\PdfParser\Parser();
                     $pdf = $parser->parseFile($file->getPathname());

@@ -17,6 +17,9 @@
         <button type="button" class="btn btn-sm btn-secondary" onclick="triggerImportDocx()" data-tooltip="Upload & import Word document (.docx/.doc)" data-tooltip-pos="bottom">
             📂 Import DOCX
         </button>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="triggerImportPageMaker()" data-tooltip="Upload & import Adobe PageMaker (.pmd/.p65/.pm6/.ptd)" data-tooltip-pos="bottom">
+            📑 Import PageMaker
+        </button>
         {{-- Temporarily hidden: Import PDF button
         <button type="button" class="btn btn-sm btn-secondary" onclick="triggerImportPdf()" data-tooltip="Upload & extract text from PDF document" data-tooltip-pos="bottom">
             📥 Import PDF
@@ -35,9 +38,10 @@
 @endsection
 
 @section('content')
-<!-- Hidden File Inputs for DOCX and PDF Imports -->
+<!-- Hidden File Inputs for DOCX, PDF and PageMaker Imports -->
 <input type="file" id="editor-docx-file" accept=".docx,.doc" style="display: none;" onchange="handleDocxImport(this)">
 <input type="file" id="editor-pdf-file" accept=".pdf" style="display: none;" onchange="handlePdfImport(this)">
+<input type="file" id="editor-pagemaker-file" accept=".pmd,.p65,.pm6,.pm5,.ptd,.txt" style="display: none;" onchange="handlePageMakerImport(this)">
 
 <div class="editor-workspace animate-fade-in">
     <!-- Main Editor -->
@@ -625,6 +629,54 @@
             indicator.style.color = '#ef4444';
             showToast(err.message || 'Failed to import DOCX file.', 'error');
         } finally {
+            input.value = '';
+        }
+    }
+
+    // Inline Adobe PageMaker Import (.pmd, .p65, .pm6, .ptd, .txt)
+    function triggerImportPageMaker() {
+        document.getElementById('editor-pagemaker-file').click();
+    }
+
+    async function handlePageMakerImport(input) {
+        if (!input.files || input.files.length === 0) return;
+
+        const file = input.files[0];
+        const formData = new FormData();
+        formData.append('pagemaker_file', file);
+
+        const indicator = document.getElementById('save-indicator');
+        indicator.innerText = 'Importing PageMaker stories...';
+        indicator.style.color = 'var(--text-muted)';
+        
+        document.querySelector('.loader-overlay').classList.remove('hide');
+
+        try {
+            const res = await fetch("{{ route('documents.import-pagemaker', $document->id) }}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: formData
+            });
+
+            const data = await res.json();
+            if (data.success && data.html && data.html.trim().length > 0) {
+                document.getElementById('document-body').innerHTML = data.html;
+                runBilingualFormatter();
+                markUnsaved();
+                indicator.innerText = 'PageMaker stories imported successfully.';
+                indicator.style.color = '#10b981';
+                showToast('PageMaker file imported & placed in editor canvas! Please save to persist.', 'success');
+            } else {
+                throw new Error(data.message || 'PageMaker import failed. Could not find readable text stories in the file.');
+            }
+        } catch (err) {
+            indicator.innerText = 'Error importing PageMaker file.';
+            indicator.style.color = '#ef4444';
+            showToast(err.message || 'Failed to import PageMaker file.', 'error');
+        } finally {
+            document.querySelector('.loader-overlay').classList.add('hide');
             input.value = '';
         }
     }

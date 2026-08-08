@@ -1,12 +1,12 @@
 {
     "noto sans gujarati": {
-        "normal": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_normal_531b3ce6e85cf5a003314925445d5bf0",
-        "bold": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_bold_531b3ce6e85cf5a003314925445d5bf0",
-        "500": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_500_531b3ce6e85cf5a003314925445d5bf0",
-        "600": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_600_531b3ce6e85cf5a003314925445d5bf0",
-        "800": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_800_531b3ce6e85cf5a003314925445d5bf0",
-        "italic": "D:\\xampp\\htdocs\\projects\\OfficeDoc\\storage\\fonts\/noto_sans_gujarati_italic_531b3ce6e85cf5a003314925445d5bf0",
-        "bold_italic": "noto_sans_gujarati_bold_italic_531b3ce6e85cf5a003314925445d5bf0"
+        "normal": "D:\\xampp\\htdocs\\projects\\BilingualDoc\\storage\\fonts\/noto_sans_gujarati_normal_9d9f651f12ea319ac5c22ba720fbb673",
+        "bold": "D:\\xampp\\htdocs\\projects\\BilingualDoc\\storage\\fonts\/noto_sans_gujarati_bold_9d9f651f12ea319ac5c22ba720fbb673",
+        "500": "D:\\xampp\\htdocs\\projects\\BilingualDoc\\storage\\fonts\/noto_sans_gujarati_500_9d9f651f12ea319ac5c22ba720fbb673",
+        "600": "D:\\xampp\\htdocs\\projects\\BilingualDoc\\storage\\fonts\/noto_sans_gujarati_600_9d9f651f12ea319ac5c22ba720fbb673",
+        "800": "D:\\xampp\\htdocs\\projects\\BilingualDoc\\storage\\fonts\/noto_sans_gujarati_800_9d9f651f12ea319ac5c22ba720fbb673",
+        "italic": "D:\\xampp\\htdocs\\projects\\BilingualDoc\\storage\\fonts\/noto_sans_gujarati_italic_9d9f651f12ea319ac5c22ba720fbb673",
+        "bold_italic": "noto_sans_gujarati_bold_italic_9d9f651f12ea319ac5c22ba720fbb673"
     },
     "noto serif gujarati": {
         "normal": "noto_serif_gujarati_normal_531b3ce6e85cf5a003314925445d5bf0"
