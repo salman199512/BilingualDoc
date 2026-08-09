@@ -71,3 +71,15 @@ Route::middleware('auth')->group(function () {
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 });
+
+// Error Pages Preview (Useful for quick inspection & design validation)
+Route::get('/errors-preview/{code}', function ($code) {
+    $validCodes = ['400', '401', '403', '404', '419', '429', '500', '503'];
+    if (!in_array((string)$code, $validCodes)) {
+        abort(404);
+    }
+    return response()->view("errors.{$code}", [
+        'exception' => new \Symfony\Component\HttpKernel\Exception\HttpException((int)$code, "Sample preview message for error {$code}")
+    ], (int)$code);
+})->name('errors.preview');
+
