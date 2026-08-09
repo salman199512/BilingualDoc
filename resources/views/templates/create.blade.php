@@ -11,7 +11,7 @@
     <form action="{{ route('templates.store') }}" method="POST" class="form-light" onsubmit="prepareTplSubmit(); showLoader();">
         @csrf
         
-        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+        <div class="template-builder-header-grid">
             <div>
                 <div class="form-group">
                     <label for="title">Template Name</label>

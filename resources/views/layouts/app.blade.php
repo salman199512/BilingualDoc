@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@hasSection('tab-title')@yield('tab-title') - @elseif(trim($__env->yieldContent('page-title'))){{ trim(strip_tags($__env->yieldContent('page-title'))) }} - @endif{{ config('app.name', 'BilingualDoc') }} | Court &amp; Legal Automation</title>
     
     <!-- Favicon -->
@@ -21,23 +22,35 @@
 </head>
 <body>
     <!-- Global Page Loader -->
-    <div id="global-loader" class="loader-overlay">
+    <div id="global-loader" class="loader-overlay hide" style="display: none;">
         <div class="loader-spinner"></div>
         <div class="loader-text">Loading Legal Automation Platform...</div>
     </div>
+    <script>
+        (function() {
+            var loader = document.getElementById('global-loader');
+            if (loader) {
+                setTimeout(function() {
+                    loader.classList.add('hide');
+                    loader.style.display = 'none';
+                }, 300);
+            }
+        })();
+    </script>
 
     @auth
     <!-- Horizontal Top Navigation Navbar -->
     <header class="app-navbar">
         <div class="navbar-limit">
-            <div class="navbar-brand">
+            <div class="navbar-brand" onclick="window.location.href='{{ route('dashboard') }}'">
                 <span class="brand-logo-icon">⚖️</span>
                 <div>
                     <span class="brand-text">BilingualDoc</span>
-                    <span class="brand-subtext">Court & Legal Automation</span>
+                    <span class="brand-subtext">Court &amp; Legal Automation</span>
                 </div>
             </div>
             
+            <!-- Desktop Navbar Menu -->
             <nav class="navbar-menu">
                 <a href="{{ route('dashboard') }}" class="navbar-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                     Dashboard
@@ -54,7 +67,7 @@
             </nav>
             
             <div class="navbar-user">
-                <div class="user-avatar" onclick="window.location.href='{{ route('profile.edit') }}'" style="cursor: pointer;" data-tooltip="Manage Profile & Password" data-tooltip-pos="bottom">
+                <div class="user-avatar" onclick="window.location.href='{{ route('profile.edit') }}'" style="cursor: pointer;" data-tooltip="Manage Profile &amp; Password" data-tooltip-pos="bottom">
                     @php
                         $words = explode(' ', Auth::user()->name);
                         $initials = '';
@@ -65,7 +78,7 @@
                     @endphp
                     {{ $initials }}
                 </div>
-                <div class="user-details" onclick="window.location.href='{{ route('profile.edit') }}'" style="cursor: pointer;" data-tooltip="Manage Profile & Password" data-tooltip-pos="bottom">
+                <div class="user-details" onclick="window.location.href='{{ route('profile.edit') }}'" style="cursor: pointer;" data-tooltip="Manage Profile &amp; Password" data-tooltip-pos="bottom">
                     <span class="user-name">{{ Auth::user()->name }}</span>
                     <span class="user-role">{{ Auth::user()->office_name ?? 'Court Operator' }}</span>
                 </div>
@@ -73,6 +86,58 @@
                     @csrf
                     <button type="submit" class="navbar-logout-btn" onclick="showLoader()" data-tooltip="Sign out of your account" data-tooltip-pos="bottom">
                         Logout
+                    </button>
+                </form>
+
+                <!-- Mobile Hamburger Toggle Button -->
+                <button type="button" class="navbar-hamburger" id="nav-toggle-btn" aria-label="Toggle Navigation Menu">
+                    <svg id="hamburger-icon" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Drawer Navigation Overlay -->
+        <div class="navbar-mobile-drawer" id="mobile-drawer">
+            <div class="mobile-drawer-header">
+                <div class="user-info-mobile" onclick="window.location.href='{{ route('profile.edit') }}'">
+                    <div class="user-avatar-mobile">{{ $initials }}</div>
+                    <div>
+                        <div class="mobile-user-name">{{ Auth::user()->name }}</div>
+                        <div class="mobile-user-role">{{ Auth::user()->office_name ?? 'Court Operator' }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="mobile-menu-links">
+                <a href="{{ route('dashboard') }}" class="mobile-nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                    <span class="mobile-nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="{{ route('documents.index') }}" class="mobile-nav-link {{ request()->routeIs('documents.index') || request()->routeIs('documents.edit') || request()->routeIs('documents.create') ? 'active' : '' }}">
+                    <span class="mobile-nav-icon">📁</span>
+                    <span>My Documents</span>
+                </a>
+                <a href="{{ route('templates.index') }}" class="mobile-nav-link {{ request()->routeIs('templates.index') || request()->routeIs('templates.edit') || request()->routeIs('templates.create') || request()->routeIs('templates.fill') ? 'active' : '' }}">
+                    <span class="mobile-nav-icon">📑</span>
+                    <span>Templates</span>
+                </a>
+                <a href="{{ route('upload-legacy.show') }}" class="mobile-nav-link {{ request()->routeIs('upload-legacy.show') ? 'active' : '' }}">
+                    <span class="mobile-nav-icon">⚡</span>
+                    <span>Legacy Upload</span>
+                </a>
+                <a href="{{ route('profile.edit') }}" class="mobile-nav-link {{ request()->routeIs('profile.edit') ? 'active' : '' }}">
+                    <span class="mobile-nav-icon">⚙️</span>
+                    <span>My Profile &amp; Settings</span>
+                </a>
+            </nav>
+
+            <div class="mobile-drawer-footer">
+                <form action="{{ route('logout') }}" method="POST" style="width: 100%;">
+                    @csrf
+                    <button type="submit" class="btn btn-danger" style="width: 100%;" onclick="showLoader()">
+                        🚪 Sign Out
                     </button>
                 </form>
             </div>
@@ -131,23 +196,35 @@
 
     <!-- JS Utility scripts -->
     <script>
-        // Page loader show/hide
-        window.addEventListener('DOMContentLoaded', () => {
+        // Fail-safe Page Loader hiding
+        function hideLoader() {
             const loader = document.getElementById('global-loader');
             if (loader) {
+                loader.classList.add('hide');
                 setTimeout(() => {
-                    loader.classList.add('hide');
-                }, 400); // smooth hide
+                    if (loader.classList.contains('hide')) {
+                        loader.style.display = 'none';
+                    }
+                }, 350);
             }
-        });
+        }
 
         function showLoader() {
             const loader = document.getElementById('global-loader');
             if (loader) {
+                loader.style.display = 'flex';
                 loader.classList.remove('hide');
-                loader.querySelector('.loader-text').innerText = 'Processing request...';
+                const textEl = loader.querySelector('.loader-text');
+                if (textEl) textEl.innerText = 'Processing request...';
             }
         }
+
+        // Hide loader on DOM ready, window load, and absolute timeout
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(hideLoader, 100);
+        });
+        window.addEventListener('load', hideLoader);
+        setTimeout(hideLoader, 1000); // Safety fallback
 
         // Global Toast Notification Helper
         function showToast(message, type = 'success') {
@@ -255,6 +332,35 @@
             window.addEventListener('scroll', () => {
                 tooltipEl.classList.remove('show');
             }, true);
+        });
+
+        // Global Mobile Navigation Drawer Engine
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('nav-toggle-btn');
+            const drawer = document.getElementById('mobile-drawer');
+            const hamburgerIcon = document.getElementById('hamburger-icon');
+
+            if (toggleBtn && drawer) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isOpen = drawer.classList.toggle('show');
+                    if (isOpen) {
+                        hamburgerIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>`;
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        hamburgerIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/>`;
+                        document.body.style.overflow = '';
+                    }
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (drawer.classList.contains('show') && !drawer.contains(e.target) && !toggleBtn.contains(e.target)) {
+                        drawer.classList.remove('show');
+                        hamburgerIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"/>`;
+                        document.body.style.overflow = '';
+                    }
+                });
+            }
         });
     </script>
     @yield('scripts')

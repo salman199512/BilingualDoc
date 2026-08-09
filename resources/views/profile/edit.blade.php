@@ -12,7 +12,7 @@
             <h3 class="card-title">Profile Information</h3>
             <form action="{{ route('profile.update') }}" method="POST" onsubmit="showLoader()">
                 @csrf
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-row-2col">
                     <div class="form-group">
                         <label for="first_name">First Name</label>
                         <input type="text" name="first_name" id="first_name" class="form-input" value="{{ old('first_name', $user->first_name) }}" placeholder="John">
@@ -28,7 +28,7 @@
                     <input type="text" name="office_name" id="office_name" class="form-input" value="{{ old('office_name', $user->office_name) }}" placeholder="e.g. High Court of Gujarat">
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-row-2col">
                     <div class="form-group">
                         <label for="phone">Phone Number</label>
                         <input type="text" name="phone" id="phone" class="form-input" value="{{ old('phone', $user->phone) }}" placeholder="+91 99999 99999">

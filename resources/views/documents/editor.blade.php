@@ -10,7 +10,7 @@
 @endsection
 
 @section('header-actions')
-    <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: nowrap;">
+    <div style="display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap;">
         <button type="button" class="btn btn-sm btn-primary" onclick="saveDocument()" data-tooltip="Save document changes (Ctrl+S)" data-tooltip-pos="bottom">
             💾 Save
         </button>
