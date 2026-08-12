@@ -21,6 +21,11 @@ class BilingualFormatterService
             return '';
         }
 
+        // Auto-convert legacy non-Unicode Gujarati (Gopika/Saral/TeraFont) if present
+        if (LegacyGujaratiConverterService::isLegacyGujarati($text)) {
+            $text = LegacyGujaratiConverterService::convert($text);
+        }
+
         // Split text by paragraphs
         $paragraphs = explode("\n", $text);
         $formattedParagraphs = [];

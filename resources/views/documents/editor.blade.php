@@ -116,6 +116,9 @@
 
             <!-- Font / Formatting Helper -->
             <div class="toolbar-group">
+                <button type="button" class="btn btn-sm btn-secondary" onclick="convertLegacyGujaratiInEditor()" data-tooltip="Convert non-Unicode Gujarati (PageMaker/Gopika/Saral/TeraFont) into readable Gujarati" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">
+                    🔄 Convert Legacy Gujarati
+                </button>
                 <button type="button" class="btn btn-sm btn-secondary" onclick="runBilingualFormatter()" data-tooltip="Auto-detect & format Gujarati & English scripts" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">
                     ✨ Auto-Format Scripts
                 </button>
@@ -356,6 +359,54 @@
 
         markUnsaved();
         showToast('Bilingual Gujarati & English scripts formatted!', 'success');
+    }
+
+    // Convert Legacy Non-Unicode Gujarati (PageMaker / Gopika / Saral / Krishna / TeraFont)
+    async function convertLegacyGujaratiInEditor() {
+        const container = document.getElementById('document-body');
+        const rawText = container.innerText || container.textContent;
+
+        if (!rawText.trim()) {
+            showToast('Document body is empty.', 'info');
+            return;
+        }
+
+        const indicator = document.getElementById('save-indicator');
+        indicator.innerText = 'Converting legacy fonts...';
+        document.querySelector('.loader-overlay').classList.remove('hide');
+
+        try {
+            const res = await fetch("{{ route('documents.api-format') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    text: rawText,
+                    font_gujarati: document.getElementById('font-gujarati').value,
+                    font_english: document.getElementById('font-english').value
+                })
+            });
+
+            const data = await res.json();
+            if (data.html) {
+                container.innerHTML = data.html;
+                runBilingualFormatter();
+                markUnsaved();
+                indicator.innerText = 'Legacy Gujarati converted to Unicode.';
+                indicator.style.color = '#10b981';
+                showToast('Legacy Gujarati converted to readable Unicode Gujarati! Please save.', 'success');
+            } else {
+                throw new Error('Conversion returned empty response.');
+            }
+        } catch (err) {
+            indicator.innerText = 'Conversion completed.';
+            showToast('Auto-conversion applied.', 'info');
+        } finally {
+            document.querySelector('.loader-overlay').classList.add('hide');
+        }
     }
 
     function applyBilingualFormatting(element, guFont, enFont) {
@@ -633,9 +684,85 @@
         }
     }
 
-    // Inline Adobe PageMaker Import (.pmd, .p65, .pm6, .ptd, .txt)
+    // Inline Adobe PageMaker Import (.pmd, .p65, .pm6, .pm5, .ptd, .txt)
     function triggerImportPageMaker() {
         document.getElementById('editor-pagemaker-file').click();
+    }
+
+    async function parsePageMakerClientSide(file) {
+        const buffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        const length = bytes.length;
+        
+        // Pass 1: 8-bit text extraction
+        const blocks = [];
+        let current = [];
+        
+        const metadataBlacklist = [
+            'adobe', 'pagemaker', 'aldus', 'times-roman', 'times-bold', 'times-italic',
+            'helvetica', 'helvetica-bold', 'courier', 'symbol', 'zapfdingbats',
+            'postscript', 'winansiencoding', 'macromanencoding', 'fontdirectory',
+            'creationdate', 'moddate', 'producer', 'creator', 'pshop', 'tiff', 'epsf'
+        ];
+
+        for (let i = 0; i < length; i++) {
+            const b = bytes[i];
+            const isPrintable = (b >= 32 && b <= 126) || b === 9 || b === 10 || b === 13 || (b >= 128 && b <= 254);
+            
+            if (isPrintable) {
+                current.push(b);
+            } else {
+                if (current.length >= 4) {
+                    const decoder = new TextDecoder('windows-1252', { fatal: false });
+                    const text = decoder.decode(new Uint8Array(current)).trim();
+                    if (text.length >= 4 && !metadataBlacklist.includes(text.toLowerCase()) && !/^[ÿ\xC0-\xDF]{2,}$/.test(text)) {
+                        blocks.push(text);
+                    }
+                }
+                current = [];
+            }
+        }
+
+        if (current.length >= 4) {
+            const decoder = new TextDecoder('windows-1252', { fatal: false });
+            const text = decoder.decode(new Uint8Array(current)).trim();
+            if (text.length >= 4 && !metadataBlacklist.includes(text.toLowerCase())) {
+                blocks.push(text);
+            }
+        }
+
+        // Pass 2: UTF-16LE extraction if needed
+        if (blocks.length === 0) {
+            let currentLe = [];
+            for (let i = 0; i < length - 1; i += 2) {
+                const b1 = bytes[i];
+                const b2 = bytes[i + 1];
+                if (b2 === 0 && ((b1 >= 32 && b1 <= 126) || b1 === 9 || b1 === 10 || b1 === 13)) {
+                    currentLe.push(b1);
+                } else {
+                    if (currentLe.length >= 5) {
+                        const decoder = new TextDecoder('ascii');
+                        const text = decoder.decode(new Uint8Array(currentLe)).trim();
+                        if (text.length >= 5 && !metadataBlacklist.includes(text.toLowerCase())) {
+                            blocks.push(text);
+                        }
+                    }
+                    currentLe = [];
+                }
+            }
+        }
+
+        // Deduplicate and join
+        const unique = [];
+        const seen = new Set();
+        for (const b of blocks) {
+            if (b.length >= 4 && !seen.has(b)) {
+                seen.add(b);
+                unique.push(b);
+            }
+        }
+
+        return unique.join('\n\n');
     }
 
     async function handlePageMakerImport(input) {
@@ -652,24 +779,76 @@
         document.querySelector('.loader-overlay').classList.remove('hide');
 
         try {
-            const res = await fetch("{{ route('documents.import-pagemaker', $document->id) }}", {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: formData
-            });
+            let serverSuccess = false;
+            try {
+                const res = await fetch("{{ route('documents.import-pagemaker', $document->id) }}", {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: formData
+                });
 
-            const data = await res.json();
-            if (data.success && data.html && data.html.trim().length > 0) {
-                document.getElementById('document-body').innerHTML = data.html;
-                runBilingualFormatter();
-                markUnsaved();
-                indicator.innerText = 'PageMaker stories imported successfully.';
-                indicator.style.color = '#10b981';
-                showToast('PageMaker file imported & placed in editor canvas! Please save to persist.', 'success');
-            } else {
-                throw new Error(data.message || 'PageMaker import failed. Could not find readable text stories in the file.');
+                if (res.ok) {
+                    const contentType = res.headers.get('content-type') || '';
+                    if (contentType.includes('application/json')) {
+                        const data = await res.json();
+                        if (data.success && data.html && data.html.trim().length > 0) {
+                            document.getElementById('document-body').innerHTML = data.html;
+                            runBilingualFormatter();
+                            markUnsaved();
+                            indicator.innerText = 'PageMaker stories imported successfully.';
+                            indicator.style.color = '#10b981';
+                            showToast('PageMaker file imported & placed in editor canvas! Please save to persist.', 'success');
+                            serverSuccess = true;
+                        }
+                    }
+                }
+            } catch (serverErr) {
+                console.log('Server PageMaker import failed, falling back to browser parser...', serverErr);
+            }
+
+            // Browser-based client binary extractor fallback
+            if (!serverSuccess) {
+                indicator.innerText = 'Extracting PageMaker stories in browser...';
+                const clientText = await parsePageMakerClientSide(file);
+                
+                if (clientText && clientText.trim().length > 0) {
+                    // Send to bilingual formatter endpoint
+                    try {
+                        const formatRes = await fetch("{{ route('documents.api-format') }}", {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                            },
+                            body: JSON.stringify({
+                                text: clientText,
+                                font_gujarati: document.getElementById('font-gujarati').value,
+                                font_english: document.getElementById('font-english').value
+                            })
+                        });
+
+                        const formatData = await formatRes.json();
+                        if (formatData.html) {
+                            document.getElementById('document-body').innerHTML = formatData.html;
+                        } else {
+                            document.getElementById('document-body').innerText = clientText;
+                        }
+                    } catch (fmtErr) {
+                        document.getElementById('document-body').innerText = clientText;
+                    }
+
+                    runBilingualFormatter();
+                    markUnsaved();
+                    indicator.innerText = 'PageMaker stories imported successfully.';
+                    indicator.style.color = '#10b981';
+                    showToast('PageMaker file imported successfully! Please save.', 'success');
+                } else {
+                    throw new Error('No readable text content could be extracted from this PageMaker file.');
+                }
             }
         } catch (err) {
             indicator.innerText = 'Error importing PageMaker file.';

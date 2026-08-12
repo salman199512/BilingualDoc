@@ -5,8 +5,8 @@ namespace App\Services;
 class PageMakerParserService
 {
     /**
-     * Parse an Adobe PageMaker file (.pmd, .p65, .pm6, .pm5, .ptd, .txt)
-     * and convert its content into clean, standard bilingual HTML.
+     * Parse an Adobe / Aldus PageMaker file (.pmd, .p65, .pm6, .pm5, .ptd, .txt)
+     * and convert its stories and text blocks into clean, standard bilingual HTML.
      *
      * @param string $filePath Absolute path to the PageMaker file
      * @param string $gujaratiFont Target Gujarati font
@@ -28,7 +28,7 @@ class PageMakerParserService
         if (self::isTaggedText($rawContent)) {
             $extractedText = self::parseTaggedText($rawContent);
         } else {
-            // 2. Parse binary PageMaker (.pmd / .p65 / .pm6 / .pm5)
+            // 2. Parse binary PageMaker (.pm5 / .pm6 / .p65 / .pmd)
             $extractedText = self::parseBinaryPageMaker($rawContent);
         }
 
@@ -36,7 +36,12 @@ class PageMakerParserService
             throw new \Exception("No readable text stories found in the PageMaker file.");
         }
 
-        // 3. Format extracted text into bilingual HTML
+        // 3. Convert legacy non-Unicode Gujarati (Gopika/Saral/Krishna/TeraFont) to standard Unicode
+        if (LegacyGujaratiConverterService::isLegacyGujarati($extractedText)) {
+            $extractedText = LegacyGujaratiConverterService::convert($extractedText);
+        }
+
+        // 4. Format extracted text into bilingual HTML
         return BilingualFormatterService::formatHtml($extractedText, $gujaratiFont, $englishFont);
     }
 
@@ -45,7 +50,7 @@ class PageMakerParserService
      */
     private static function isTaggedText(string $content): bool
     {
-        return (bool) preg_match('/<PMTaggedText|<v\d+\.\d+>|<ParaStyle:|<Font:/i', substr($content, 0, 500));
+        return (bool) preg_match('/<PMTaggedText|<v\d+\.\d+>|<ParaStyle:|<Font:/i', substr($content, 0, 1024));
     }
 
     /**
@@ -57,8 +62,8 @@ class PageMakerParserService
         $content = preg_replace('/^<PMTaggedText[^>]*>/i', '', $content);
         $content = preg_replace('/<v\d+\.\d+>[^\r\n]*/i', '', $content);
 
-        // Replace paragraph and soft break tags
-        $content = preg_replace('/<\\/?ParaStyle:[^>]*>/i', "\n", $content);
+        // Replace paragraph and style tags
+        $content = preg_replace('/<\\/?ParaStyle:[^>]*>/i', "\n\n", $content);
         $content = preg_replace('/<\\/?CharStyle:[^>]*>/i', '', $content);
         $content = preg_replace('/<\\/?Font:[^>]*>/i', '', $content);
         $content = preg_replace('/<\\/?FontSize:[^>]*>/i', '', $content);
@@ -69,7 +74,7 @@ class PageMakerParserService
         $content = preg_replace('/<\\/?Kern:[^>]*>/i', '', $content);
         $content = preg_replace('/<\\/?BaselineShift:[^>]*>/i', '', $content);
         $content = preg_replace('/<\\/?Rule[^>]*>/i', '', $content);
-        $content = preg_replace('/<[A-Za-z]+:[^>]*>/', '', $content); // generic PM tag
+        $content = preg_replace('/<[A-Za-z]+:[^>]*>/', '', $content);
 
         // Replace special escape codes
         $content = str_replace(['\\<', '\\>'], ['<', '>'], $content);
@@ -79,79 +84,213 @@ class PageMakerParserService
     }
 
     /**
-     * Parse binary Adobe PageMaker (.pmd / .p65 / .pm6 / .pm5) files
-     * by scanning for text story streams, string blocks, and UTF-8 / extended ANSI sequences.
+     * Parse binary Adobe/Aldus PageMaker (.pm5 / .pm6 / .p65 / .pmd) files
+     * using multi-pass extraction for 8-bit text streams and UTF-16 wide streams.
      */
-    private static function parseBinaryPageMaker(string $binary): string
+    public static function parseBinaryPageMaker(string $binary): string
     {
-        $length = strlen($binary);
         $textBlocks = [];
-        $currentBlock = '';
-        $inTextBlock = false;
 
-        // Common PostScript / PageMaker internal system font names and metadata to filter out
+        // Common PostScript / Aldus / PageMaker internal system metadata to ignore
         $metadataBlacklist = [
             'Adobe', 'PageMaker', 'Aldus', 'Times-Roman', 'Times-Bold', 'Times-Italic',
             'Helvetica', 'Helvetica-Bold', 'Helvetica-Oblique', 'Courier', 'Courier-Bold',
             'Symbol', 'ZapfDingbats', 'AvantGarde', 'Bookman', 'NewCenturySchlbk', 'Palatino',
             'PostScript', 'DisplayPostScript', 'WinAnsiEncoding', 'MacRomanEncoding',
             'StandardEncoding', 'ISOLatin1Encoding', 'FontDirectory', 'FontName',
-            'DefaultFont', 'CreationDate', 'ModDate', 'Producer', 'Creator', 'Title'
+            'DefaultFont', 'CreationDate', 'ModDate', 'Producer', 'Creator', 'Title',
+            'PShop', 'TIFF', 'EPSF', 'ColorSpace', 'DeviceRGB', 'DeviceCMYK', 'ArialMT',
+            'HelveticaLT'
         ];
 
-        // Scan the binary stream for printable character runs (ASCII 32-126, tabs, newlines, and UTF-8 / extended characters 128-255)
+        // Pass 1: Extract 8-bit text runs
+        $pass1Blocks = self::extract8BitRuns($binary, $metadataBlacklist);
+        if (!empty($pass1Blocks)) {
+            $textBlocks = array_merge($textBlocks, $pass1Blocks);
+        }
+
+        // Pass 2: Extract 16-bit UTF-16LE / UTF-16BE text runs (common in PM6.5 and PMD 7)
+        if (empty($textBlocks)) {
+            $pass2Blocks = self::extract16BitRuns($binary, $metadataBlacklist);
+            if (!empty($pass2Blocks)) {
+                $textBlocks = array_merge($textBlocks, $pass2Blocks);
+            }
+        }
+
+        // Deduplicate and filter out non-story noise
+        $uniqueBlocks = [];
+        $seen = [];
+        foreach ($textBlocks as $block) {
+            $normalized = trim($block);
+            
+            // Check if block is a valid story sentence/paragraph
+            if (!self::isRealStoryBlock($normalized)) {
+                continue;
+            }
+
+            $hash = md5($normalized);
+            if (!isset($seen[$hash])) {
+                $seen[$hash] = true;
+                $uniqueBlocks[] = $normalized;
+            }
+        }
+
+        $fullText = implode("\n\n", $uniqueBlocks);
+        return self::cleanExtractedText($fullText);
+    }
+
+    /**
+     * Scan binary stream for consecutive 8-bit printable runs
+     */
+    private static function extract8BitRuns(string $binary, array $blacklist): array
+    {
+        $length = strlen($binary);
+        $blocks = [];
+        $current = '';
+        $inRun = false;
+
         for ($i = 0; $i < $length; $i++) {
             $byte = ord($binary[$i]);
 
-            // Printable ASCII or Tab (9), LF (10), CR (13), or non-breaking space (160), or multibyte/extended chars
-            $isPrintable = ($byte >= 32 && $byte <= 126) || $byte === 9 || $byte === 10 || $byte === 13 || ($byte >= 160 && $byte <= 255);
+            // Printable ASCII (32-126), Tab (9), LF (10), CR (13), or extended ANSI/Gujarati/Indian font bytes (128-254 except 0xFF)
+            $isPrintable = ($byte >= 32 && $byte <= 126) || $byte === 9 || $byte === 10 || $byte === 13 || ($byte >= 128 && $byte <= 254);
 
             if ($isPrintable) {
-                // Map carriage return or form feed to standard newline
                 if ($byte === 13 || $byte === 12 || $byte === 11) {
-                    $currentBlock .= "\n";
+                    $current .= "\n";
                 } elseif ($byte === 9) {
-                    $currentBlock .= "\t";
+                    $current .= "\t";
                 } elseif ($byte === 10) {
-                    $currentBlock .= "\n";
+                    $current .= "\n";
                 } else {
-                    $currentBlock .= $binary[$i];
+                    $current .= $binary[$i];
                 }
-                $inTextBlock = true;
+                $inRun = true;
             } else {
-                if ($inTextBlock) {
-                    $trimmed = trim($currentBlock);
-                    // Filter out short noise (< 3 chars) or pure punctuation/binary noise
-                    if (strlen($trimmed) >= 3 && preg_match('/[a-zA-Z0-9\x{0A80}-\x{0AFF}\x80-\xFF]/u', $trimmed)) {
-                        $isMetadata = false;
-                        foreach ($metadataBlacklist as $meta) {
-                            if (strcasecmp($trimmed, $meta) === 0) {
-                                $isMetadata = true;
-                                break;
-                            }
-                        }
-                        if (!$isMetadata) {
-                            $textBlocks[] = $trimmed;
-                        }
+                if ($inRun) {
+                    $cleaned = self::normalizeAndValidateRun($current, $blacklist);
+                    if ($cleaned !== null) {
+                        $blocks[] = $cleaned;
                     }
-                    $currentBlock = '';
-                    $inTextBlock = false;
+                    $current = '';
+                    $inRun = false;
                 }
             }
         }
 
-        // Add remaining block
-        if ($inTextBlock && !empty(trim($currentBlock))) {
-            $trimmed = trim($currentBlock);
-            if (strlen($trimmed) >= 3) {
-                $textBlocks[] = $trimmed;
+        if ($inRun && !empty($current)) {
+            $cleaned = self::normalizeAndValidateRun($current, $blacklist);
+            if ($cleaned !== null) {
+                $blocks[] = $cleaned;
             }
         }
 
-        // Join text blocks and clean up
-        $fullText = implode("\n\n", $textBlocks);
+        return $blocks;
+    }
 
-        return self::cleanExtractedText($fullText);
+    /**
+     * Scan binary stream for 16-bit UTF-16LE / UTF-16BE text runs
+     */
+    private static function extract16BitRuns(string $binary, array $blacklist): array
+    {
+        $length = strlen($binary);
+        $blocks = [];
+        
+        $currentLe = '';
+        for ($i = 0; $i < $length - 1; $i += 2) {
+            $b1 = ord($binary[$i]);
+            $b2 = ord($binary[$i + 1]);
+
+            if ($b2 === 0 && (($b1 >= 32 && $b1 <= 126) || $b1 === 9 || $b1 === 10 || $b1 === 13)) {
+                $currentLe .= chr($b1);
+            } else {
+                if (strlen($currentLe) >= 6) {
+                    $cleaned = self::normalizeAndValidateRun($currentLe, $blacklist);
+                    if ($cleaned !== null) {
+                        $blocks[] = $cleaned;
+                    }
+                }
+                $currentLe = '';
+            }
+        }
+
+        if (strlen($currentLe) >= 6) {
+            $cleaned = self::normalizeAndValidateRun($currentLe, $blacklist);
+            if ($cleaned !== null) {
+                $blocks[] = $cleaned;
+            }
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * Validate if a block is real story content
+     */
+    public static function isRealStoryBlock(string $block): bool
+    {
+        $trimmed = trim($block);
+        $len = mb_strlen($trimmed);
+
+        if ($len < 4) return false;
+
+        // Discard pure binary coordinate noise (e.g. ÿ, À, ê, €, $, /, etc.)
+        if (preg_match('/^[ÿ\x{00FF}\x{00C0}-\x{00DF}$€\/\\\\\s\d.,;:\-—]+$/u', $trimmed)) {
+            // Only keep if it looks like a valid date e.g. "27-06-2014"
+            if (!preg_match('/\d{1,4}[\/\-.]\d{1,2}[\/\-.]\d{1,4}/', $trimmed)) {
+                return false;
+            }
+        }
+
+        // Recognized legal/court keywords or patterns are always kept
+        if (preg_match('/(,the¾|MÚt¤|Ëne|ftÞ{e|Ëh™t{wk|™t{|Yt\.|YkrÃÞt|Awk|fhðt|ytÃ|તારીખ|સ્થળ|સહી|નામ|રૂપિયા|રૂ\.|કાયમી|સરનામું|Agreement|Notice|Loan|Government|Circular)/u', $trimmed)) {
+            return true;
+        }
+
+        // Meaningful story sentences
+        if ($len >= 12 && preg_match('/\s+/', $trimmed)) {
+            $letterCount = preg_match_all('/[a-zA-Z0-9\x{0A80}-\x{0AFF}]/u', $trimmed);
+            if ($letterCount / $len >= 0.35) {
+                return true;
+            }
+        }
+
+        // Short labeled lines e.g. "Name: ...", "Place: ..."
+        if (preg_match('/^[a-zA-Z0-9\x{0A80}-\x{0AFF}\s,.:\-\/()_]{6,}$/u', $trimmed) && preg_match('/[\s:\-]/', $trimmed)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Normalize run encoding to UTF-8 and validate against blacklist
+     */
+    private static function normalizeAndValidateRun(string $rawRun, array $blacklist): ?string
+    {
+        // Convert to valid UTF-8
+        $converted = $rawRun;
+        if (!mb_check_encoding($converted, 'UTF-8')) {
+            $converted = @iconv('Windows-1252', 'UTF-8//IGNORE', $rawRun);
+            if ($converted === false || empty($converted)) {
+                $converted = mb_convert_encoding($rawRun, 'UTF-8', 'ISO-8859-1, Windows-1252, ASCII');
+            }
+        }
+
+        $trimmed = trim($converted);
+        
+        if (strlen($trimmed) < 4) {
+            return null;
+        }
+
+        // Check against system metadata blacklist
+        foreach ($blacklist as $meta) {
+            if (strcasecmp($trimmed, $meta) === 0) {
+                return null;
+            }
+        }
+
+        return $trimmed;
     }
 
     /**
@@ -159,13 +298,13 @@ class PageMakerParserService
      */
     private static function cleanExtractedText(string $text): string
     {
-        // Fix line endings
+        // Standardize line endings
         $text = str_replace(["\r\n", "\r"], "\n", $text);
 
         // Remove control characters except tab and newline
         $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
 
-        // Remove repetitive non-text sequences
+        // Remove long non-text divider sequences
         $text = preg_replace('/[_\-=*~]{8,}/', '------------------------', $text);
 
         // Remove excessive empty lines
@@ -173,7 +312,7 @@ class PageMakerParserService
 
         // Ensure valid UTF-8
         if (!mb_check_encoding($text, 'UTF-8')) {
-            $text = mb_convert_encoding($text, 'UTF-8', 'ISO-8859-1, Windows-1252, UTF-8');
+            $text = @iconv('Windows-1252', 'UTF-8//IGNORE', $text) ?: mb_convert_encoding($text, 'UTF-8', 'ISO-8859-1, Windows-1252, UTF-8');
         }
 
         return trim($text);

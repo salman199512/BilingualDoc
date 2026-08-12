@@ -381,15 +381,15 @@ class DocumentController extends Controller
             } catch (\Exception $e) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'PageMaker import error: ' . $e->getMessage()
-                ], 422);
+                    'message' => 'PageMaker import notice: ' . $e->getMessage()
+                ], 200); // 200 so client-side reader can attempt local fallback extraction
             }
         }
 
         return response()->json([
             'success' => false,
             'message' => 'Upload failed or invalid PageMaker file.'
-        ], 422);
+        ], 200);
     }
 
     public function apiFormat(Request $request)
