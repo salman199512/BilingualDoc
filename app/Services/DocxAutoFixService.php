@@ -141,6 +141,83 @@ class DocxAutoFixService
             $pgMar->setAttribute('w:gutter', '0');
         }
 
+        // 3.5. Convert Legacy Gujarati Fonts (TitleLightTwo, TitleLight, TitleTwo, AbhayTwo) to Unicode Gujarati
+        $runs = $dom->getElementsByTagName('r');
+        $legacyFonts = ['titlelighttwo', 'titlelight', 'titletwo', 'abhaytwo'];
+        
+        foreach ($runs as $run) {
+            if (!$run instanceof DOMElement) continue;
+
+            $rPr = $run->getElementsByTagName('rPr')->item(0);
+            if (!$rPr) continue;
+
+            $rFonts = $rPr->getElementsByTagName('rFonts')->item(0);
+            if (!$rFonts) continue;
+
+            $isLegacyFont = false;
+            foreach (['ascii', 'hAnsi', 'eastAsia', 'cs'] as $attr) {
+                $fontAttr = $rFonts->getAttribute('w:' . $attr);
+                if ($fontAttr && in_array(strtolower(trim($fontAttr)), $legacyFonts)) {
+                    $isLegacyFont = true;
+                    break;
+                }
+            }
+
+            if ($isLegacyFont) {
+                $tElements = $run->getElementsByTagName('t');
+                if ($tElements->length > 0) {
+                    $tNodes = [];
+                    foreach ($tElements as $tEl) {
+                        $tNodes[] = $tEl;
+                    }
+                    
+                    $originalText = '';
+                    foreach ($tNodes as $tEl) {
+                        $originalText .= $tEl->textContent;
+                    }
+
+                    // Convert legacy Gujarati to Unicode
+                    $unicodeText = LegacyGujaratiConverterService::convertLMG($originalText);
+
+                    // Update the first t element and remove others
+                    $firstT = $tNodes[0];
+                    while ($firstT->hasChildNodes()) {
+                        $firstT->removeChild($firstT->firstChild);
+                    }
+                    $firstT->appendChild($dom->createTextNode($unicodeText));
+                    $firstT->setAttribute('xml:space', 'preserve');
+
+                    for ($i = 1; $i < count($tNodes); $i++) {
+                        $parentOfT = $tNodes[$i]->parentNode;
+                        if ($parentOfT) {
+                            $parentOfT->removeChild($tNodes[$i]);
+                        }
+                    }
+                }
+
+                // Update fonts to the selected Gujarati font
+                $rFonts->setAttribute('w:ascii', $gujaratiFont);
+                $rFonts->setAttribute('w:hAnsi', $gujaratiFont);
+                $rFonts->setAttribute('w:eastAsia', $gujaratiFont);
+                $rFonts->setAttribute('w:cs', $gujaratiFont);
+
+                // Set font size to 13pt (26 half-points)
+                $sz = $rPr->getElementsByTagName('sz')->item(0);
+                if (!$sz) {
+                    $sz = $dom->createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:sz');
+                    $rPr->appendChild($sz);
+                }
+                $sz->setAttribute('w:val', '26');
+
+                $szCs = $rPr->getElementsByTagName('szCs')->item(0);
+                if (!$szCs) {
+                    $szCs = $dom->createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:szCs');
+                    $rPr->appendChild($szCs);
+                }
+                $szCs->setAttribute('w:val', '26');
+            }
+        }
+
         // 4. Process runs to split Gujarati and English scripts
         $runs = $dom->getElementsByTagName('r');
         $runsToReplace = [];
